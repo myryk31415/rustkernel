@@ -1,7 +1,7 @@
 use core::fmt;
-use volatile::Volatile;
 use lazy_static::lazy_static;
 use spin::Mutex;
+use volatile::Volatile;
 
 #[macro_export]
 macro_rules! print {
@@ -18,10 +18,9 @@ macro_rules! println {
 }
 
 #[doc(hidden)]
-pub fn _print(args: fmt::Arguments)
-{
-	use core::fmt::Write;
-	WRITER.lock().write_fmt(args).unwrap();
+pub fn _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+    WRITER.lock().write_fmt(args).unwrap();
 }
 
 #[allow(dead_code)]
@@ -147,4 +146,38 @@ lazy_static! {
         color_code: ColorCode::new(Color::LightGray, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
+}
+
+#[test_case]
+fn test_print_simple() {
+    print!("vga buffer output tested");
+}
+
+#[test_case]
+fn test_print_many() {
+    for _ in 0..200 {
+        print!("vga buffer output tested");
+    }
+}
+
+#[test_case]
+fn test_println_simple() {
+    println!("vga buffer output tested");
+}
+
+#[test_case]
+fn test_println_many() {
+    for _ in 0..200 {
+        println!("vga buffer output tested");
+    }
+}
+
+#[test_case]
+fn test_println_output() {
+    let s = "this is a test output string";
+    println!("{s}");
+    for (i, c) in s.chars().enumerate() {
+        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
+        assert_eq!(char::from(screen_char.ascii_character), c);
+    }
 }

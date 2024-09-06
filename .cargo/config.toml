@@ -8,3 +8,4 @@ target = "x86_64-rustkernel.json"
 
 [target.'cfg(target_os = "none")']
 runner = "bootimage runner"
+
