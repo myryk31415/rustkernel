@@ -39,6 +39,7 @@ dependencies = [
 name = "rustkernel"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.6.0",
  "bootloader",
  "lazy_static",
  "spin 0.5.2",

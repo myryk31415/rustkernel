@@ -3,9 +3,14 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
+#![feature(abi_x86_interrupt)]
+#![feature(core_intrinsics)]
+#![feature(naked_functions)]
+#![feature(c_variadic)]
 
-use core::panic::PanicInfo;
+use core::{arch::asm, panic::PanicInfo};
 
+pub mod interrupts;
 pub mod serial;
 pub mod vga_buffer;
 
@@ -54,6 +59,8 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     exit_qemu(QemuExitCode::Failed);
     loop {}
 }
+
+pub fn divide_by_zero() {}
 
 /// Entry point for `cargo test`
 #[cfg(test)]
