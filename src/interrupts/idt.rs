@@ -7,15 +7,16 @@ pub type HandlerFunc = extern "C" fn() -> !;
 
 pub struct Idt([Entry; 16]);
 
+// interrupt descriptor table
 impl Idt {
     pub fn new() -> Self {
         Idt([Entry::missing(); 16])
     }
 
-    pub fn set_handler(&mut self, entry: u8, handler: HandlerFunc) -> () {
+    pub fn set_handler(&mut self, entry: u8, handler: HandlerFunc) -> &mut EntryOptions {
         self.0[entry as usize] = Entry::new(CS::get_reg(), handler);
         // TODO
-        // &mut self.0[entry as usize].options
+        &mut self.0[entry as usize].options
     }
 
     pub fn load(&'static self) {
@@ -32,7 +33,7 @@ impl Idt {
 }
 
 #[derive(Debug, Clone, Copy)]
-#[repr(C, packed)]
+#[repr(C)]
 pub struct Entry {
     pointer_low: u16,
     gtd_selector: SegmentSelector,
@@ -101,7 +102,10 @@ impl EntryOptions {
 
     #[allow(dead_code)]
     pub fn set_stack_index(&mut self, index: u16) -> &mut Self {
-        self.0 = set_bits(self.0, 0, 3, index);
+        // The hardware IST index starts at 1, but our software IST index
+        // starts at 0. Therefore we need to add 1 here.
+        // (thx to x86_64 crate)
+        self.0 = set_bits(self.0, 0, 3, index + 1);
         self
     }
 }

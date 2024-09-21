@@ -1,15 +1,16 @@
-use core::arch::asm;
+use core::arch::{asm, global_asm};
 
-use crate::{println, serial_print, serial_println};
+use crate::{gdt, println, serial_print, serial_println};
 use bitflags::{bitflags, Flags};
 use lazy_static::lazy_static;
+use x86_64::structures::idt::InterruptDescriptorTable;
 use x86_64::{instructions::interrupts, registers::control};
 
-mod idt;
+pub mod idt;
 
 #[derive(Debug)]
 #[repr(C)]
-struct InterruptStackFrame {
+pub struct InterruptStackFrame {
     instruction_pointer: u64,
     code_segment: u64,
     cpu_flags: u64,
@@ -17,7 +18,7 @@ struct InterruptStackFrame {
     stack_segment: u64,
 }
 
-pub fn init() {
+pub fn init_idt() {
     IDT.load();
 }
 
@@ -56,6 +57,7 @@ macro_rules! handler {
     }};
 }
 
+#[macro_export]
 macro_rules! handler_with_error_code {
     ($name: ident) => {{
         #[naked]
@@ -102,8 +104,10 @@ lazy_static! {
         idt.set_handler(0, handler!(divide_by_zero_handler));
         idt.set_handler(3, handler!(breakpoint_handler));
         idt.set_handler(6, handler!(invalid_opcode_handler));
+        idt.set_handler(8, handler_with_error_code!(double_fault_handler)).
+            set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
+        // idt.0[8].options.set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         idt.set_handler(14, handler_with_error_code!(page_fault_handler));
-        // idt.set_handler(8, double_fault(t_handler);
 
         idt
     };
@@ -127,6 +131,10 @@ bitflags! {
 //         Ok(())
 //     }
 // }
+
+extern "C" fn double_fault_handler(stack_frame: &InterruptStackFrame, _error_code: u64) -> ! {
+    panic!("EXCPETION: DOUBLE FAULT!\n{:#?}", stack_frame);
+}
 
 extern "C" fn page_fault_handler(stack_frame: &InterruptStackFrame, error_code: u64) -> () {
     println!(
@@ -160,6 +168,13 @@ extern "C" fn invalid_opcode_handler(stack_frame: &InterruptStackFrame) -> ! {
 
 #[test_case]
 fn test_breakpoint_exception() {
-    init();
+    init_idt();
     x86_64::instructions::interrupts::int3();
 }
+
+// #[test_case]
+// fn test_page_fault_exception() {
+//     init_idt();
+//     unsafe { *(0xdeadbea0 as *mut u64) = 42 };
+// }
+
