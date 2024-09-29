@@ -1,8 +1,11 @@
-use core::arch::{asm, global_asm};
-
-use crate::{gdt, println, serial_print, serial_println};
+use crate::{exit_qemu, gdt, print, println, serial_print, serial_println};
 use bitflags::{bitflags, Flags};
+use core::arch::{asm, global_asm};
+use core::default;
 use lazy_static::lazy_static;
+use pic8259::ChainedPics;
+use spin::{self, Mutex};
+use x86_64::instructions::port::{Port, PortGeneric};
 use x86_64::structures::idt::InterruptDescriptorTable;
 use x86_64::{instructions::interrupts, registers::control};
 
@@ -101,13 +104,17 @@ lazy_static! {
     static ref IDT: idt::Idt = {
         let mut idt = idt::Idt::new();
 
+        // cpu exceptions
         idt.set_handler(0, handler!(divide_by_zero_handler));
         idt.set_handler(3, handler!(breakpoint_handler));
         idt.set_handler(6, handler!(invalid_opcode_handler));
         idt.set_handler(8, handler_with_error_code!(double_fault_handler)).
             set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
-        // idt.0[8].options.set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         idt.set_handler(14, handler_with_error_code!(page_fault_handler));
+
+        // hardware interrupts
+        idt.set_handler(InterruptIndex::Timer.as_u8(), handler!(timer_interrupt_handler));
+        idt.set_handler(InterruptIndex::Keyboard.as_u8(), handler!(keyboard_interrupt_handler));
 
         idt
     };
@@ -133,7 +140,7 @@ bitflags! {
 // }
 
 extern "C" fn double_fault_handler(stack_frame: &InterruptStackFrame, _error_code: u64) -> ! {
-    panic!("EXCPETION: DOUBLE FAULT!\n{:#?}", stack_frame);
+    panic!("EXCEPTION: DOUBLE FAULT!\n{:#?}", stack_frame);
 }
 
 extern "C" fn page_fault_handler(stack_frame: &InterruptStackFrame, error_code: u64) -> () {
@@ -166,6 +173,73 @@ extern "C" fn invalid_opcode_handler(stack_frame: &InterruptStackFrame) -> ! {
     loop {}
 }
 
+// hardware interrupt
+
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+
+pub static PICS: spin::Mutex<ChainedPics> =
+    spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+pub enum InterruptIndex {
+    Timer = PIC_1_OFFSET,
+    Keyboard,
+}
+
+impl InterruptIndex {
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    fn as_usize(self) -> usize {
+        usize::from(self as u8)
+    }
+}
+
+extern "C" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    // print!(".");
+
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+    }
+}
+
+extern "C" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
+
+    lazy_static! {
+        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
+        Mutex::new(Keyboard::new(
+            ScancodeSet1::new(),
+                layouts::Us104Key,
+                HandleControl::Ignore
+            ));
+        }
+
+    let mut keyboard = KEYBOARD.lock();
+    let mut port: Port<u8> = Port::new(0x60);
+
+    let scancode: u8 = unsafe { port.read() };
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+        if let Some(key) = keyboard.process_keyevent(key_event) {
+            match key {
+                DecodedKey::Unicode(character) => print!("{}", character),
+                DecodedKey::RawKey(key) => print!("{:?}", key),
+            }
+        }
+    }
+
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+    }
+}
+
+// test cases
+
 #[test_case]
 fn test_breakpoint_exception() {
     init_idt();
@@ -177,4 +251,3 @@ fn test_breakpoint_exception() {
 //     init_idt();
 //     unsafe { *(0xdeadbea0 as *mut u64) = 42 };
 // }
-

@@ -5,12 +5,12 @@ use x86_64::{PrivilegeLevel, VirtAddr};
 
 pub type HandlerFunc = extern "C" fn() -> !;
 
-pub struct Idt([Entry; 16]);
+pub struct Idt([Entry; 256]);
 
 // interrupt descriptor table
 impl Idt {
     pub fn new() -> Self {
-        Idt([Entry::missing(); 16])
+        Idt([Entry::missing(); 256])
     }
 
     pub fn set_handler(&mut self, entry: u8, handler: HandlerFunc) -> &mut EntryOptions {

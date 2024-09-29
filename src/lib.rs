@@ -10,6 +10,8 @@
 
 use core::{arch::asm, panic::PanicInfo};
 
+use x86_64::instructions::hlt;
+
 pub mod gdt;
 pub mod interrupts;
 pub mod serial;
@@ -18,6 +20,16 @@ pub mod vga_buffer;
 pub fn init() {
     gdt::init();
     interrupts::init_idt();
+    unsafe {
+        interrupts::PICS.lock().initialize();
+    };
+    x86_64::instructions::interrupts::enable();
+}
+
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
+    }
 }
 
 pub trait Testable {
@@ -42,13 +54,15 @@ pub enum QemuExitCode {
     Failed = 0x11,
 }
 
-pub fn exit_qemu(exit_code: QemuExitCode) {
+pub fn exit_qemu(exit_code: QemuExitCode) -> ! {
     use x86_64::instructions::port::Port;
 
     unsafe {
         let mut port = Port::new(0xf4);
         port.write(exit_code as u32);
     }
+
+    loop {}
 }
 
 pub fn test_runner(tests: &[&dyn Testable]) {
@@ -63,7 +77,6 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     serial_println!("[failed]\n");
     serial_println!("Error:{}\n", info);
     exit_qemu(QemuExitCode::Failed);
-    loop {}
 }
 
 pub fn divide_by_zero() {}

@@ -44,7 +44,6 @@ lazy_static! {
 extern "C" fn test_double_fault_handler(_stack_frame: InterruptStackFrame, _error_code: u64) -> ! {
     serial_println!("[ok]");
     exit_qemu(QemuExitCode::Success);
-    loop {}
 }
 
 pub fn init_test_idt() {

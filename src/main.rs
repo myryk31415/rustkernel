@@ -5,7 +5,7 @@
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
-use rustkernel::{init, println};
+use rustkernel::{hlt_loop, init, print, println};
 
 #[no_mangle]
 //entry point to the programm
@@ -19,8 +19,8 @@ pub extern "C" fn _start() -> ! {
     // stack_overflow();
     // unsafe { *(0xdeadbea0 as *mut u64) = 42 };
     // x86_64::instructions::interrupts::int3();
-    println!("didnt crash yaay");
-    loop {}
+    // println!("didnt crash yaay");
+    hlt_loop();
 }
 
 /// called on panic (no unwinding)
@@ -28,8 +28,7 @@ pub extern "C" fn _start() -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-
-    loop {}
+    hlt_loop();
 }
 
 #[cfg(test)]
