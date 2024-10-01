@@ -145,7 +145,6 @@ impl fmt::Write for Writer {
 
 use core::fmt::Write;
 
-use crate::serial_println;
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,

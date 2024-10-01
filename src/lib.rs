@@ -8,10 +8,7 @@
 #![feature(naked_functions)]
 #![feature(c_variadic)]
 
-use core::{arch::asm, panic::PanicInfo};
-
-use bootloader::entry_point;
-use x86_64::instructions::hlt;
+use core::panic::PanicInfo;
 
 pub mod gdt;
 pub mod interrupts;
@@ -84,7 +81,7 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 pub fn divide_by_zero() {}
 
 #[cfg(test)]
-use bootloader::BootInfo;
+use bootloader::{entry_point, BootInfo};
 
 #[cfg(test)]
 entry_point!(test_kernel_main);

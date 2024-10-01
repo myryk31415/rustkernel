@@ -1,14 +1,12 @@
-use crate::{exit_qemu, gdt, hlt_loop, print, println, serial_print, serial_println};
+use crate::{gdt, hlt_loop, print, println};
 use bitflags::{bitflags, Flags};
-use core::arch::{asm, global_asm};
-use core::default;
+use core::arch::asm;
 use core::fmt::Debug;
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use spin::{self, Mutex};
-use x86_64::instructions::port::{Port, PortGeneric};
-use x86_64::structures::idt::InterruptDescriptorTable;
-use x86_64::{instructions::interrupts, registers::control};
+use x86_64::instructions::port::Port;
+use x86_64::registers::control;
 
 pub mod idt;
 
