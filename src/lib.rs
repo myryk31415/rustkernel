@@ -4,6 +4,7 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 #![feature(abi_x86_interrupt)]
+#![allow(internal_features)]
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
 #![feature(c_variadic)]

@@ -143,8 +143,6 @@ impl fmt::Write for Writer {
     }
 }
 
-use core::fmt::Write;
-
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,
@@ -179,6 +177,7 @@ fn test_println_many() {
 
 #[test_case]
 fn test_println_output() {
+    use core::fmt::Write;
     let s = "this is a test output string";
     interrupts::without_interrupts(|| {
         let mut writer = WRITER.lock();

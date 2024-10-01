@@ -1,5 +1,5 @@
 use crate::{gdt, hlt_loop, print, println};
-use bitflags::{bitflags, Flags};
+use bitflags::bitflags;
 use core::arch::asm;
 use core::fmt::Debug;
 use lazy_static::lazy_static;
@@ -205,6 +205,7 @@ pub enum InterruptIndex {
     Keyboard,
 }
 
+#[allow(dead_code)]
 impl InterruptIndex {
     fn as_u8(self) -> u8 {
         self as u8
