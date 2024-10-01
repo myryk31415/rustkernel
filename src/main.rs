@@ -4,22 +4,30 @@
 #![test_runner(rustkernel::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use rustkernel::{hlt_loop, init, print, println};
+use rustkernel::{hlt_loop, init, println};
 
-#[no_mangle]
+entry_point!(kernel_main);
+
 //entry point to the programm
-pub extern "C" fn _start() -> ! {
+fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("main called!");
 
     #[cfg(test)]
     test_main();
 
     init();
-    // stack_overflow();
-    // unsafe { *(0xdeadbea0 as *mut u64) = 42 };
+
+    use x86_64::registers::control::Cr3;
+
+    let (level_4_page_table, _) = Cr3::read();
+    println!("level 4 address: {:?}", level_4_page_table.start_address());
+
+    // let ptr = 0x204013 as *mut u8;
+    // unsafe { *ptr = 42 }
+    // unsafe { *(0xdeadbeaf as *mut u8) = 42 };
     // x86_64::instructions::interrupts::int3();
-    // println!("didnt crash yaay");
     hlt_loop();
 }
 

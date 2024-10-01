@@ -1,7 +1,8 @@
-use crate::{exit_qemu, gdt, print, println, serial_print, serial_println};
+use crate::{exit_qemu, gdt, hlt_loop, print, println, serial_print, serial_println};
 use bitflags::{bitflags, Flags};
 use core::arch::{asm, global_asm};
 use core::default;
+use core::fmt::Debug;
 use lazy_static::lazy_static;
 use pic8259::ChainedPics;
 use spin::{self, Mutex};
@@ -11,7 +12,6 @@ use x86_64::{instructions::interrupts, registers::control};
 
 pub mod idt;
 
-#[derive(Debug)]
 #[repr(C)]
 pub struct InterruptStackFrame {
     instruction_pointer: u64,
@@ -19,6 +19,24 @@ pub struct InterruptStackFrame {
     cpu_flags: u64,
     stack_pointer: u64,
     stack_segment: u64,
+}
+
+impl Debug for InterruptStackFrame {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("InterruptStackFrame")
+            .field(
+                "instruction_pointer",
+                &format_args!("virtual address - {:#x}", self.instruction_pointer),
+            )
+            .field("code_segment", &self.instruction_pointer)
+            .field("cpu_flags", &format_args!("{:#x}", &self.cpu_flags))
+            .field(
+                "stack_pointer",
+                &format_args!("virtual address - {:#x}", self.stack_pointer),
+            )
+            .field("stack_segment", &self.stack_segment)
+            .finish()
+    }
 }
 
 pub fn init_idt() {
@@ -145,12 +163,13 @@ extern "C" fn double_fault_handler(stack_frame: &InterruptStackFrame, _error_cod
 
 extern "C" fn page_fault_handler(stack_frame: &InterruptStackFrame, error_code: u64) -> () {
     println!(
-        "\nEXCEPTION: PAGE FAULT while accessing {:#x}\n\
+        "\nEXCEPTION: PAGE FAULT while accessing {:?}\n\
         error code: {:?}\n{:#?}",
-        control::Cr2::read_raw(),
+        control::Cr2::read(),
         PageFaultErrorCode::from_bits(error_code).unwrap(),
-        &*stack_frame
+        stack_frame
     );
+    hlt_loop();
 }
 
 extern "C" fn divide_by_zero_handler(stack_frame: &InterruptStackFrame) -> ! {
@@ -212,12 +231,12 @@ extern "C" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
 
     lazy_static! {
         static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
-        Mutex::new(Keyboard::new(
-            ScancodeSet1::new(),
+            Mutex::new(Keyboard::new(
+                ScancodeSet1::new(),
                 layouts::Us104Key,
                 HandleControl::Ignore
             ));
-        }
+    }
 
     let mut keyboard = KEYBOARD.lock();
     let mut port: Port<u8> = Port::new(0x60);
