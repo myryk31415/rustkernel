@@ -1,6 +1,5 @@
 use x86_64::{
-    instructions::tables,
-    structures::paging::{frame, PageTable, OffsetPageTable},
+    structures::paging::{PageTable, OffsetPageTable},
     PhysAddr, VirtAddr,
 };
 
@@ -8,15 +7,15 @@ use x86_64::{
 ///
 /// Complete physical memory must be mapped at offset
 /// Function can only be called once
-// pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
-//     let level_four_table
-//      = active_level_four_table(physical_memory_offset);
-//     OffsetPageTable::new(level_four_table, physical_memory_offset)
-// }
+pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
+    let level_four_table
+     = active_level_four_table(physical_memory_offset);
+    OffsetPageTable::new(level_four_table, physical_memory_offset)
+}
 
 /// all physical memory need to be mapped
 /// only call once
-pub unsafe fn active_level_four_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
+unsafe fn active_level_four_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
     use x86_64::registers::control::Cr3;
 
     let (level_four_table_frame, _) = Cr3::read();
