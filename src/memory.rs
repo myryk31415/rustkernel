@@ -1,5 +1,7 @@
 use x86_64::{
-    structures::paging::{PageTable, OffsetPageTable},
+    structures::paging::{
+        FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PhysFrame, Size4KiB,
+    },
     PhysAddr, VirtAddr,
 };
 
@@ -8,8 +10,7 @@ use x86_64::{
 /// Complete physical memory must be mapped at offset
 /// Function can only be called once
 pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
-    let level_four_table
-     = active_level_four_table(physical_memory_offset);
+    let level_four_table = active_level_four_table(physical_memory_offset);
     OffsetPageTable::new(level_four_table, physical_memory_offset)
 }
 
@@ -27,40 +28,26 @@ unsafe fn active_level_four_table(physical_memory_offset: VirtAddr) -> &'static 
     &mut *page_table_ptr
 }
 
-/// Translates a virtual address into a physical one
-/// Returns `None` if not mapped
-///
-/// Whole physical memory needs to be mapped at given offset.
-pub unsafe fn translate_addr(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Option<PhysAddr> {
-    translate_addr_inner(addr, physical_memory_offset)
+pub fn create_example_mapping(
+    page: Page,
+    mapper: &mut OffsetPageTable,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) {
+    use x86_64::structures::paging::PageTableFlags as Flags;
+
+    // FIXME: This is not safe, only for testing
+    let frame = PhysFrame::containing_address(PhysAddr::new(0xb8000));
+    let flags = Flags::PRESENT | Flags::WRITABLE;
+
+    let map_to_result = unsafe { mapper.map_to(page, frame, flags, frame_allocator) };
+
+    map_to_result.expect("map_to_failed").flush();
 }
 
-fn translate_addr_inner(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Option<PhysAddr> {
-    use x86_64::registers::control::Cr3;
-    use x86_64::structures::paging::page_table::FrameError;
+pub struct EmptyFrameAllocator;
 
-    let (level_four_table_frame, _) = Cr3::read();
-
-    let tables_indexes = [
-        addr.p4_index(),
-        addr.p3_index(),
-        addr.p2_index(),
-        addr.p1_index(),
-    ];
-    let mut frame = level_four_table_frame;
-
-    for &index in &tables_indexes {
-        let virt = physical_memory_offset + frame.start_address().as_u64();
-        let table_ptr: *mut PageTable = virt.as_mut_ptr();
-        let table = unsafe { &*table_ptr };
-
-        let entry = &table[index];
-        frame = match entry.frame() {
-            Ok(frame) => frame,
-            Err(FrameError::FrameNotPresent) => return None,
-            Err(FrameError::HugeFrame) => panic!("Hugh pages not supported"),
-        };
+unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        None
     }
-
-    Some(frame.start_address() + u64::from(addr.page_offset()))
 }

@@ -6,8 +6,15 @@
 
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use rustkernel::{hlt_loop, init, println};
-use x86_64::{structures::paging::Translate, VirtAddr};
+use rustkernel::{
+    hlt_loop, init,
+    memory::{self, EmptyFrameAllocator},
+    println,
+};
+use x86_64::{
+    structures::paging::{Page, Size4KiB, Translate},
+    VirtAddr,
+};
 
 entry_point!(kernel_main);
 
@@ -22,51 +29,16 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
 
-    let mapper = unsafe { rustkernel::memory::init(phys_mem_offset) };
+    let mut mapper = unsafe { rustkernel::memory::init(phys_mem_offset) };
+    let mut frame_allocator = memory::EmptyFrameAllocator;
+    let page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(0x0));
+    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
 
-    let addresses = [
-        // identity-mapped vga buffer page
-        0xb8000,
-        // some code page
-        0x201008,
-        (phys_mem_offset + 0x401008 as u64).as_u64(),
-        // some stack page
-        0x0100_0020_1a10,
-        // virtual address mapped to physical address 0
-        boot_info.physical_memory_offset,
-    ];
-
-    for &address in &addresses {
-        let virt = VirtAddr::new(address);
-        let phys = mapper.translate_addr(virt);
-        println!("{:?} -> {:?}", virt, phys);
-    }
-
+    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    unsafe {
+        page_ptr.offset(80).write_volatile(0x_f021_f077_f065_f04e);
+    };
     hlt_loop();
-
-
-    // for (i, entry) in l4_table.iter().enumerate() {
-    //     if !entry.is_unused() {
-    //         println!("L4 Entry {}: {:?}", i, entry);
-
-    //         let phys = entry.frame().unwrap().start_address();
-    //         let virt = phys_mem_offset + phys.as_u64();
-    //         let page_table_ptr: *mut PageTable = virt.as_mut_ptr();
-
-    //         let l3_table = unsafe { &*page_table_ptr };
-
-    //         for (i, entry) in l3_table.iter().enumerate() {
-    //             if !entry.is_unused() {
-    //                 println!("L3 Entry {}: {:?}", i, entry);
-    //             }
-    //         }
-    //     }
-    // }
-
-    // let ptr = 0x204013 as *mut u8;
-    // unsafe { *ptr = 42 }
-    // unsafe { *(0xdeadbeaf as *mut u8) = 42 };
-    // x86_64::instructions::interrupts::int3();
 }
 
 /// called on panic (no unwinding)
