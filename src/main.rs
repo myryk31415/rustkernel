@@ -8,11 +8,11 @@ use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use rustkernel::{
     hlt_loop, init,
-    memory::{self, EmptyFrameAllocator},
+    memory::{self},
     println,
 };
 use x86_64::{
-    structures::paging::{Page, Size4KiB, Translate},
+    structures::paging::{Page, Size4KiB},
     VirtAddr,
 };
 
@@ -30,8 +30,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
 
     let mut mapper = unsafe { rustkernel::memory::init(phys_mem_offset) };
-    let mut frame_allocator = memory::EmptyFrameAllocator;
-    let page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(0x0));
+    let mut frame_allocator = unsafe { memory::BootInfoFrameAllocator::init(&boot_info.memory_map) };
+    let page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(0xdeadbeaf));
     memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
 
     let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
