@@ -1,19 +1,46 @@
-use linked_list_allocator::LockedHeap;
 
 // pub struct Dummy;
 
 // unsafe impl GlobalAlloc for Dummy {
-//     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-//         null_mut()
+    //     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
+        //         null_mut()
 //     }
 
 //     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-//         panic!("dealloc should never be called !");
-//     }
+    //         panic!("dealloc should never be called !");
+    //     }
 // }
 
+pub mod bump;
+
+pub struct Locked<A> {
+    inner: spin::Mutex<A>,
+}
+
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Locked {
+            inner: spin::Mutex::new(inner),
+        }
+    }
+
+    pub fn lock(&self) -> spin::MutexGuard<A> {
+        self.inner.lock()
+    }
+}
+
+/// Align the given address upwards
+///
+/// align needs to be a power of two
+fn align_up(addr: usize, align: usize) -> usize {
+    (addr + align - 1) & !(align - 1)
+}
+
+use bump::BumpAllocator;
+// use linked_list_allocator::LockedHeap;
+
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
 
 pub const HEAP_START: usize = 0x4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024;
