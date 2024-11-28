@@ -67,7 +67,7 @@ fn many_boxes() {
 }
 
 #[test_case]
-fn filling_heap() {
+fn many_boxes_long_lived() {
     let long_lived = Box::new(42);
     for i in 0..HEAP_SIZE {
         let x = Box::new(i);

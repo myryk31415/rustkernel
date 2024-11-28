@@ -8,6 +8,7 @@
 #![feature(core_intrinsics)]
 #![feature(naked_functions)]
 #![feature(c_variadic)]
+#![feature(const_mut_refs)]
 
 use core::panic::PanicInfo;
 
