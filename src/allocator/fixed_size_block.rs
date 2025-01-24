@@ -1,6 +1,10 @@
 use super::Locked;
 use alloc::alloc::GlobalAlloc;
-use core::{alloc::Layout, mem, ptr::{self, NonNull}};
+use core::{
+    alloc::Layout,
+    mem,
+    ptr::{self, NonNull},
+};
 
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 1024, 2048];
 
@@ -66,22 +70,22 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let mut allocator = self.lock();
-		match list_index(&layout) {
-			Some(index) => {
-				let new_node = ListNode {
-					next: allocator.list_heads[index].take()
-				};
-				// verify block size and alignment
-				assert!(mem::size_of::<ListNode>() <= BLOCK_SIZES[index]);
-				assert!(mem::align_of::<ListNode>() <= BLOCK_SIZES[index]);
-				let new_node_ptr = ptr as *mut ListNode;
-				new_node_ptr.write(new_node);
-				allocator.list_heads[index] = Some(&mut *new_node_ptr);
-			}
-			None => {
-				let ptr = NonNull::new(ptr).unwrap();
-				allocator.fallback_allocator.deallocate(ptr, layout);
-			}
-		}
+        match list_index(&layout) {
+            Some(index) => {
+                let new_node = ListNode {
+                    next: allocator.list_heads[index].take(),
+                };
+                // verify block size and alignment
+                assert!(mem::size_of::<ListNode>() <= BLOCK_SIZES[index]);
+                assert!(mem::align_of::<ListNode>() <= BLOCK_SIZES[index]);
+                let new_node_ptr = ptr as *mut ListNode;
+                new_node_ptr.write(new_node);
+                allocator.list_heads[index] = Some(&mut *new_node_ptr);
+            }
+            None => {
+                let ptr = NonNull::new(ptr).unwrap();
+                allocator.fallback_allocator.deallocate(ptr, layout);
+            }
+        }
     }
 }

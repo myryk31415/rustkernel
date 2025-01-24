@@ -38,8 +38,8 @@ fn align_up(addr: usize, align: usize) -> usize {
 }
 
 use bump::BumpAllocator;
-use linked_list::LinkedListAllocator;
 use fixed_size_block::FixedSizeBlockAllocator;
+use linked_list::LinkedListAllocator;
 
 #[global_allocator]
 // static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
